@@ -4,40 +4,31 @@ use strict;
 my $lynx="/home/mmarion/bin/lynx_cm_signal";
 my %signals = ();
 my @channels = ();
-my %report = (8 => "EIGHT", 2 => "TWO", 3 => "THREE", 4 => "FOUR", 5 => "FIVE", 6 => "SIX", 7 => "SEVEN", 1 => "ONE");
+my %report = (1 => "ONE", 2 => "TWO", 3 => "THREE", 4 => "FOUR", 5 => "FIVE", 6 => "SIX",
+              7 => "SEVEN", 8 => "EIGHT", 9 => "NINE", 10 => "TEN", 11 => "ELEVEN", 
+              12 => "TWELVE", 13 => "THIRTEEN", 14 => "FOURTEEN", 15 => "FIFTEEN", 16 => "SIXTEEN");
 my @values = ();
 
 my $channels_next=0;
 my $in_signal=0;
 my $loop=1;
 open my $data, '-|', $lynx or die "Can't run $lynx command: $!\n";
+#   1 Locked 256QAM 16 633.00 MHz 2.10 dBmV 38.61 dB 3 0
+#   2 Locked 256QAM 1 543.00 MHz 1.30 dBmV 38.61 dB 59 0
 while (($loop eq 1) && (defined(my $line = readline $data))) {
-    if ($line =~ /Downstream Bonding Channel Value/) {
+    if ($line =~ /Downstream Bonded Channels/) {
         $channels_next=1;
     } elsif ($channels_next eq 1) {
-        my $parse = $line;
-        $parse =~ s/.*Channel ID //;
-        @channels = split(/\s+/,$parse);
-        $channels_next=0;
-    } elsif ($line =~ /Signal to Noise Ratio/) {
-        $in_signal=1;
-        my $p = $line;
-        $p =~ s/.*oise Ratio //g;
-        $p =~ s/\s+dB//g;
-        @values = split(/\s+/,$p);
-    } elsif ($in_signal eq 1) {
-        # *sigh* line wraps if enough channels...
-        $in_signal=0;
-        my $p = $line;
-        $p =~ s/^\s+//g;
-        $p =~ s/\s+dB//g;
-        my @vals=split(/\s+/,$p); 
-        while (my $v = shift @vals) {
-            push(@values,$v);
+        if ( $line =~ /Upstream Bonded Channels/ ) {
+            last;
+        } elsif ( $line =~ /(\d+)\s+Locked.*dBmV\s+(\d+\.\d+)\s+dB\s+(\d+)\s+(\d+)/ ) {
+            my $channel=$1;
+            my $snr=$2;
+            my $corr=$3;
+            my $uncorr=$4;
+            push @channels,$channel;
+            push @values,$snr;
         }
-        $loop=0;
-    } elsif ($line =~ /Downstream Modulation/) {
-        $loop=0;
     }
 }
 close $data;
@@ -51,9 +42,24 @@ while ($i <= $#channels) {
     $i++;
 }
 exit 0;
-#                      Downstream Bonding Channel Value
-#                       Channel ID 8  2  3  4  5  6  7
-#      Frequency 591000000 Hz  627000000 Hz  621000000 Hz  615000000 Hz
-#                  609000000 Hz  603000000 Hz  597000000 Hz
-#    Signal to Noise Ratio 37 dB  28 dB  37 dB  37 dB  38 dB  38 dB  37 dB
-#    Downstream Modulation QAM256  QAM256  QAM256  QAM256  QAM256  QAM256
+
+#[snip]
+#   DOCSIS Network Access Enabled Allowed
+#
+#   Downstream Bonded Channels
+#   Channel Lock Status Modulation Channel ID Frequency Power SNR Corrected
+#   Uncorrectables
+#   1 Locked 256QAM 16 633.00 MHz 2.10 dBmV 38.61 dB 3 0
+#   2 Locked 256QAM 1 543.00 MHz 1.30 dBmV 38.61 dB 59 0
+#   3 Locked 256QAM 2 549.00 MHz 1.50 dBmV 38.61 dB 78 0
+#   4 Locked 256QAM 3 555.00 MHz 1.50 dBmV 38.98 dB 83 0
+#[snip]
+#
+#   Upstream Bonded Channels
+#   Channel Lock Status US Channel Type Channel ID Symbol Rate Frequency
+#   Power
+#   1 Locked ATDMA 50 5120 kSym/s 23.30 MHz 43.50 dBmV
+#   2 Locked TDMA 52 2560 kSym/s 37.00 MHz 44.75 dBmV
+#   3 Locked ATDMA 51 5120 kSym/s 30.60 MHz 44.25 dBmV
+#   4 Locked TDMA 49 2560 kSym/s 18.50 MHz 42.75 dBmV
+#[snip]
