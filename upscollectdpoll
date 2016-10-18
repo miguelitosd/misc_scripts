@@ -37,22 +37,7 @@ use Getopt::Long qw( :config auto_help auto_version bundling no_ignore_case );
 # </Plugin>
 #
 #
-my %conf = ("migimac" => {
-                port => 3551,
-                host => "migimac",
-            },
-            "livingroom-left" => {
-                port    => 3551,
-                host    => "raspberrypi",
-            },
-            "livingroom-right" => {
-                port    => 3552,
-                host    => "raspberrypi",
-            },
-            "bender"    => {
-                port    => 3551,
-                host    => "localhost",
-            },
+my %conf = (
         );
 
 GetOptions(
