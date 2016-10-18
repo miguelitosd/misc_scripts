@@ -1,0 +1,110 @@
+#!/usr/bin/perl -w
+use strict;
+use 5.020;
+use Data::Dumper;
+use Getopt::Long qw( :config auto_help auto_version bundling no_ignore_case ); 
+# Configure host(s) to query in hash %conf
+# the hash uses a name key and optional key/vals under each 'name' for port or host to query via
+#  By default the port will be 3551 and host==name if not configured so you can technically configure
+#  a host by just creating an empty key if the hostname is the same as the "name" and the port is the default port
+#  e.g. my %conf => (
+#   "host1" => {},
+#   "host2" => { 
+#               port => 3552,
+#               host => 192.168.1.8,
+#               },
+#              );
+#   host1 will query hostname host1 on the default 3551 port
+#   host2 wiill query IP 192.168.1.18 on port 3552, 
+#   Example output:
+#   PUTVAL host1/apcups-exec/charge N:100.0
+#   PUTVAL host1/apcups-exec/hitrans N:139.0
+#   PUTVAL host1/apcups-exec/lowtrans N:88.0
+#   PUTVAL host1/apcups-exec/percentload N:8.0
+#   PUTVAL host1/apcups-exec/timeleft N:69.3
+#   PUTVAL host1/apcups-exec/voltagebattery N:24.0
+#   PUTVAL host1/apcups-exec/voltageinput N:117.0
+#   PUTVAL host2/apcups-exec/charge N:100.0
+#   PUTVAL host2/apcups-exec/hitrans N:139.0
+#   PUTVAL host2/apcups-exec/lowtrans N:88.0
+#   PUTVAL host2/apcups-exec/percentload N:13.0
+#   PUTVAL host2/apcups-exec/timeleft N:46.4
+#   PUTVAL host2/apcups-exec/voltageinput N:118.0
+#
+# Configure in collectd:
+# <Plugin exec>
+#     Exec "user:group" "/usr/local/bin/upscollectdpoll"
+# </Plugin>
+#
+#
+my %conf = ("migimac" => {
+                port => 3551,
+                host => "migimac",
+            },
+            "livingroom-left" => {
+                port    => 3551,
+                host    => "raspberrypi",
+            },
+            "livingroom-right" => {
+                port    => 3552,
+                host    => "raspberrypi",
+            },
+            "bender"    => {
+                port    => 3551,
+                host    => "localhost",
+            },
+        );
+
+GetOptions(
+    'v|verbose'     =>  \my $verbose,
+);
+
+foreach my $name (sort keys %conf) {
+    my $host = $name;
+    if (defined($conf{$name}{'host'})) {
+        $host = $conf{$name}{'host'};
+    }
+    my $port = 3551;
+    if (defined($conf{$name}{'port'})) {
+        $port = $conf{$name}{'port'};
+    }
+    my %info = do_query($host,$port);
+    foreach my $field (sort keys %info) {
+        say "PUTVAL $name/apcups-exec/$field N:$info{$field}";
+    }
+}
+
+sub do_query {
+    my $host = shift;
+    my $port = shift;
+    my %data;
+
+    verbose("Entered do_query with host=$host port=$port");
+    my $cmd = "apcaccess -h $host:$port";
+    open my $apc, '-|', $cmd or die "Can't run $cmd: $!\n";
+    while (defined(my $line = readline($apc))) {
+        my $charge; my $percentLoad; my $timeLeft; my $voltageBattery, my $voltageInput; 
+        if ($line =~ /BCHARGE\s+:\s+(\d+\.\d+)\s+Percent/) {
+            $data{'charge'} = $1;
+        } elsif ($line =~ /LOADPCT\s+:\s+(\d+\.\d+)\s+Percent/) {
+            $data{'percentload'} = $1;
+        } elsif ($line =~ /TIMELEFT\s+:\s+(\d+\.\d+)\s+Minutes/) {
+            $data{'timeleft'} = $1;
+        } elsif ($line =~ /BATTV\s+:\s+(\d+\.\d+)\s+Volts/) {
+            $data{'voltagebattery'} = $1;
+        } elsif ($line =~ /LINEV\s+:\s+(\d+\.\d+)\s+Volts/) {
+            $data{'voltageinput'} = $1;
+        } elsif ($line =~ /LOTRANS\s+:\s+(\d+\.\d+)\s+Volts/) {
+            $data{'lowtrans'} = $1;
+        } elsif ($line =~ /HITRANS\s+:\s+(\d+\.\d+)\s+Volts/) {
+            $data{'hitrans'} = $1;
+        } 
+    }
+    close $apc;
+    return %data;
+}
+
+sub verbose {
+    return unless $verbose;
+    say $_[0];
+}
