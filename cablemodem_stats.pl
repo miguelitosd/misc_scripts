@@ -14,8 +14,8 @@ my $carbon_server = "127.0.0.1";
 my $carbon_port = 2003;
 my $cache_expiry = 55;     # Should set to just under how often you'll poll to 
                         # allow caching while testing but get live data when really polling
-my $lynx_status = "SCRIPT TO lynx -dump http://$modem/cgi-bin/status or equiv";
-my $lynx_swinfo = "SCRIPT TO lynx -dump http://modem/cgi-bin/swinfo or equiv";
+my $lynx_status = "SCRIPT or call like lynx -dump http://modem/cgi-bin/status or equiv";
+my $lynx_swinfo = "SCRIPT or call like lynx -dump http://modem/cgi-bin/swinfo or equiv";
 
 GetOptions(
     'v|verbose'     =>  \my $verbose,
@@ -123,3 +123,33 @@ Usage: $0 [--verbose|--dryrun]
     ";
     exit;
 }
+
+__END__
+
+=head1 NAME
+
+cablemodem_stats.pl - Perl script to walk info from Motorola Cablemodem and feed signal info into a carbon/graphite DB
+
+=head1 SYNOPSIS
+
+B<cablemodem_stats.pl> [--verbose|--dryrun]
+    dryrun  : Don't send info to carbonDB
+    verbose : Output verbose/debugging bits for testing
+
+Script currently requires setting the 2 \$lynx_* lines to point to simple shell scripts that call
+lynx (or wget/curl/etc) to output the text of the status/swinfo pages from the modem vs parsing the
+html itself.
+
+=head1 EXAMPLE OUTPUT
+
+    $ ./cablemodem_stats.pl --dryrun --verbose
+    Cache miss, doing web query against cablemodem
+    Cache TTL = '55' seconds
+    Caching cm data
+    get took 0 seconds, munging output
+    $sock->send("cablemodem.down.1.corr 1633478 1476911547")
+    $sock->send("cablemodem.down.1.sig 40.95 1476911547")
+    $sock->send("cablemodem.down.1.uncorr 3001152 1476911547")
+    [snip]
+
+=cut
